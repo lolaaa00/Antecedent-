@@ -38,6 +38,14 @@ deployment transactions:
 | `AntecedentNotary` | `0xedea2a8a34818cccb7041963cd942bc17e1c1e5fe6cb6a79d87582131d7cd1c6` | `FINALIZED`, execution `UNKNOWN`, `result_name: NO_MAJORITY`, `votes_committed: 0`, `votes_revealed: 0` |
 | `AntecedentNotary` (retry) | `0x8f7a5c326f0cb001469e0a834b7d2d0d45a23ec42f0d8eae820526ff7a1b6ac6` | same: `NO_MAJORITY`, 0 votes |
 | Minimal probe contract (isolation test — a 12-line contract with one `u32` counter, no consensus/web/LLM calls at all) | `0x9096674e6a2e8481a8149c508c5c5dfceb2fb49f192a6f203b45079ff5b568e4` | **same failure**: `FINALIZED`, `NO_MAJORITY`, 0 votes committed/revealed |
+| `AntecedentNotary` (retry, later attempt) | `0xbc17edc9a35a7780ed8a12849d3680b101c68a7d77c385df115835e66b9d9c54` | same: `NO_MAJORITY`, 0 votes, `num_of_rounds: 0` |
+
+This condition was re-checked at a later point in time (not immediately
+after the first attempts) and reproduced identically — the same
+`NO_MAJORITY` / 0-votes signature on a fourth independent transaction. This
+rules out a momentary blip and indicates a standing validator-pool
+availability condition on Studionet at the time of this build, external to
+this repository.
 
 **Diagnosis.** The third transaction is decisive: a trivial contract with no
 nondeterministic logic at all — just `self.counter = 0` in `__init__` —
