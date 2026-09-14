@@ -41,6 +41,7 @@ deployment transactions:
 | Minimal probe contract (isolation test — a 12-line contract with one `u32` counter, no consensus/web/LLM calls at all) | `0x9096674e6a2e8481a8149c508c5c5dfceb2fb49f192a6f203b45079ff5b568e4` | **same failure**: `FINALIZED`, `NO_MAJORITY`, 0 votes committed/revealed |
 | `AntecedentNotary` (retry, later attempt) | `0xbc17edc9a35a7780ed8a12849d3680b101c68a7d77c385df115835e66b9d9c54` | same: `NO_MAJORITY`, 0 votes, `num_of_rounds: 0` |
 | `AntecedentNotary` (post-remediation, current source) | `0x131aed98562dfb87ea2d2ced7ad2fc758fd676393a8ff6c6dd54e7aa47a3c5d3` | same: `NO_MAJORITY`, execution `UNKNOWN` |
+| `AntecedentNotary` (explicit 1 GEN fee-value, ruling out fee/deposit as cause) | `0xc704169e72b96d64df073ded8fa3ed78629910bc4b27d280dedae6f76b6bba14` | same: `NO_MAJORITY`, execution `UNKNOWN` |
 
 This condition was re-checked repeatedly across a span of real time,
 including once more after the observation-consensus/timezone/evidence-digest
@@ -74,6 +75,28 @@ is reported as deployed because none was produced. Re-running
 healthy again is expected to succeed without any code change — the contract
 source, the funded account, and the CLI/SDK path have all been verified
 independently working up to the consensus-voting step.
+
+**Deeper diagnosis (explorer-level).** The GenLayer Studio Explorer
+(https://explorer-studio.genlayer.com) shows, for every attempted deploy tx:
+`Initial Validators: -`, `Rotation Count: 0`, `Consensus Result: -`, and on
+the Monitoring tab, `Consensus Rounds: 0` with *"This transaction may not
+have completed consensus yet."* This means no validator was ever assigned to
+these transactions' consensus round at all — a scheduling/staffing gap in
+Studio's backend, not validators actively disagreeing (which would show
+committed/revealed votes and a rotation). We ruled out fee/deposit
+insufficiency by retrying with an explicit `--fee-value 1000000000000000000`
+(1 GEN) — identical failure. `genlayer staking active-validators` reports
+"Staking is not supported on studio-based networks," and `network info`
+shows `feeManager: not set` / `staking: not set` for the `studionet` profile
+— Studio's hosted network doesn't expose the on-chain validator/staking
+state a public testnet would, so there's no further client-side signal to
+check. The explorer's own dashboard reports 20 active validators and 670k+
+historical transactions network-wide, so this looks like an assignment
+problem for new transactions specifically, not a total outage. A detailed,
+reproducible incident report is in
+[docs/STUDIONET_INCIDENT_REPORT.md](STUDIONET_INCIDENT_REPORT.md), ready to
+post to GenLayer's community Discord (https://discord.gg/8Jm4v89VAu) for a
+human diagnosis of the Studio backend itself.
 
 ## After a successful deployment
 
