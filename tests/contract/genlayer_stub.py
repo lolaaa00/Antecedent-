@@ -30,6 +30,10 @@ from dataclasses import dataclass as _dataclass, fields as _fields
 # ---------------------------------------------------------------------------
 
 WEB_FIXTURES: dict[str, str] = {}
+# Per-URL queue of successive fetch results — pops one value per call so a
+# test can simulate the underlying page changing between the leader's fetch
+# and a validator's independent fetch. Takes priority over WEB_FIXTURES.
+WEB_SEQUENCES: dict[str, list] = {}
 WEB_FAILURES: set[str] = set()
 PROMPT_QUEUE: list[str] = []
 CURRENT_TIME = {"value": 1_700_000_000}
@@ -38,6 +42,7 @@ CURRENT_SENDER = {"value": "0xAAAA000000000000000000000000000000AAAA"}
 
 def reset_fixtures():
     WEB_FIXTURES.clear()
+    WEB_SEQUENCES.clear()
     WEB_FAILURES.clear()
     PROMPT_QUEUE.clear()
     CURRENT_TIME["value"] = 1_700_000_000
@@ -116,6 +121,9 @@ class _WebNondet:
     def render(self, url, mode="text"):
         if url in WEB_FAILURES:
             raise RuntimeError(f"fetch failed for {url}")
+        seq = WEB_SEQUENCES.get(url)
+        if seq:
+            return seq.pop(0)
         return WEB_FIXTURES.get(url, "")
 
     def get(self, url):

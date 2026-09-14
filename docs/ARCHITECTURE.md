@@ -1,16 +1,16 @@
 # Architecture
 
-## Two contracts, one composability boundary
+## Three contracts, one composability boundary
 
 ```
-┌─────────────────────────┐         reads certificate        ┌──────────────────────┐
-│  AntecedentNotary        │ ───────────────────────────────▶ │  AntecedentGate       │
-│  - event definitions     │  gl.ContractAt(...).contract(..) │  - gate rules         │
-│  - sealing (immutable)   │                                   │  - execution receipts │
-│  - consensus observation │                                   │  (no semantic logic)  │
-│  - deterministic relation│                                   │                        │
-│  - immutable certificates│                                   │                        │
-└─────────────────────────┘                                   └──────────────────────┘
+┌─────────────────────────┐  reads certificate   ┌──────────────────────┐  reads gate + receipt   ┌──────────────────────────┐
+│  AntecedentNotary        │ ────────────────────▶│  AntecedentGate       │ ───────────────────────▶│  MigrationExecution      │
+│  - event definitions     │  gl.ContractAt(...)  │  - gate rules         │   gl.ContractAt(...)    │  Consumer                │
+│  - sealing (immutable)   │                       │  - execution receipts │                          │  - the protected action  │
+│  - consensus observation │                       │  (no semantic logic)  │                          │  (no semantic logic)     │
+│  - deterministic relation│                       │                        │                          │                          │
+│  - immutable certificates│                       │                        │                          │                          │
+└─────────────────────────┘                       └──────────────────────┘                          └──────────────────────────┘
 ```
 
 `AntecedentGate` performs **zero** semantic/AI evaluation. It is a pure,
@@ -21,6 +21,25 @@ actions on notary certificates without re-running consensus each time. A
 notary logic or add no real constraint; Gate instead enforces four
 independent, checkable conditions (pair hash match, relation match, minimum
 separation, certificate freshness) before writing an immutable receipt.
+
+## The consumer contract
+
+Gate on its own only *records* that a certificate was accepted — that is
+necessary but not sufficient to demonstrate the trust model this product
+sells, because nothing outside AntecedentGate's own storage actually changes.
+`MigrationExecutionConsumer` (`contracts/antecedent_consumer.py`) is the real
+downstream state transition: it can publish a canonical "migration execution
+notice" — an actual consequential action, not just a bookkeeping flag — only
+when a specific gate has reached `EXECUTED` against a matching certificate.
+It performs no semantic evaluation of its own; it inherits every guarantee
+Gate already enforces (VALID status, pair-hash match, relation match, minimum
+separation, freshness, one-certificate-one-execution) purely by requiring
+`gate.status == "EXECUTED"` and a matching receipt, and adds its own
+independent replay guard on top. The negative path is proven in
+`tests/contract/test_consumer.py`: an armed-but-not-executed gate, a
+certificate-id mismatch, a stale certificate, an inconclusive certificate, and
+a replayed publish call are all shown to leave the protected action
+unreachable.
 
 ## State machine — Event
 
@@ -65,8 +84,8 @@ execute at most once.
 ## Frontend / contract separation
 
 - `lib/genlayer/` — network module, client factories, tx-finality waiter.
-- `lib/contract/` — typed adapters (`notary.ts`, `gate.ts`), the tx lifecycle
-  hook, address resolution.
+- `lib/contract/` — typed adapters (`notary.ts`, `gate.ts`, `consumer.ts`),
+  the tx lifecycle hook, address resolution.
 - `lib/wallet/` — EIP-1193 wallet context (connect/disconnect/chain-change).
 - `lib/validation/` — Zod schemas mirroring every contract-side bound
   (source count, HTTPS-only, no credentials/fragments, id charset, relation

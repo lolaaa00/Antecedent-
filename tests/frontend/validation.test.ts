@@ -91,6 +91,30 @@ describe("createPairSchema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("defaults requireDistinctSourceHosts to false when omitted", () => {
+    const result = createPairSchema.safeParse(pairBase);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.requireDistinctSourceHosts).toBe(false);
+  });
+
+  it("rejects a SAME_DAY minimum separation of a full day or more — impossible bound", () => {
+    const result = createPairSchema.safeParse({
+      ...pairBase,
+      relation: "SAME_DAY",
+      minSeparationSeconds: 86400,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a SAME_DAY minimum separation just under a full day", () => {
+    const result = createPairSchema.safeParse({
+      ...pairBase,
+      relation: "SAME_DAY",
+      minSeparationSeconds: 86399,
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("createGateSchema", () => {

@@ -2,15 +2,17 @@
 
 import { useMemo } from "react";
 import { getReadClient, createWriteClient } from "@/lib/genlayer/client";
-import { NOTARY_ADDRESS, GATE_ADDRESS, requireAddress } from "./addresses";
+import { NOTARY_ADDRESS, GATE_ADDRESS, CONSUMER_ADDRESS, requireAddress } from "./addresses";
 import { notaryAdapter } from "./notary";
 import { gateAdapter } from "./gate";
+import { consumerAdapter } from "./consumer";
 import { useWallet } from "@/lib/wallet/WalletContext";
 
 export function useDeploymentStatus() {
   return {
     notaryDeployed: Boolean(NOTARY_ADDRESS),
     gateDeployed: Boolean(GATE_ADDRESS),
+    consumerDeployed: Boolean(CONSUMER_ADDRESS),
   };
 }
 
@@ -27,6 +29,14 @@ export function useGateRead() {
     if (!GATE_ADDRESS) return null;
     const address = requireAddress(GATE_ADDRESS, "GATE_ADDRESS");
     return gateAdapter(getReadClient(), address);
+  }, []);
+}
+
+export function useConsumerRead() {
+  return useMemo(() => {
+    if (!CONSUMER_ADDRESS) return null;
+    const address = requireAddress(CONSUMER_ADDRESS, "CONSUMER_ADDRESS");
+    return consumerAdapter(getReadClient(), address);
   }, []);
 }
 
@@ -47,5 +57,15 @@ export function useGateWrite() {
     const address = requireAddress(GATE_ADDRESS, "GATE_ADDRESS");
     const client = createWriteClient(wallet.address, wallet.provider);
     return { client, adapter: gateAdapter(client, address) };
+  }, [wallet.address, wallet.provider, wallet.isCorrectNetwork]);
+}
+
+export function useConsumerWrite() {
+  const wallet = useWallet();
+  return useMemo(() => {
+    if (!CONSUMER_ADDRESS || !wallet.address || !wallet.provider || !wallet.isCorrectNetwork) return null;
+    const address = requireAddress(CONSUMER_ADDRESS, "CONSUMER_ADDRESS");
+    const client = createWriteClient(wallet.address, wallet.provider);
+    return { client, adapter: consumerAdapter(client, address) };
   }, [wallet.address, wallet.provider, wallet.isCorrectNetwork]);
 }

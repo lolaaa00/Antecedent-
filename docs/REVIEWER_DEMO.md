@@ -7,9 +7,10 @@ proposal notice preceded the execution notice by a minimum interval.
 > Contracts must be deployed to Studionet and their addresses set in
 > `.env.local` before this walkthrough can run against live state — see
 > [DEPLOYMENT.md](DEPLOYMENT.md) for the current, honest status of that step.
-> Every screen below is reachable and renders correctly today; the "not
-> configured" banner appears wherever a write would otherwise be attempted
-> against an undeployed contract.
+> Every screen below is reachable and renders correctly today (live at
+> https://antecedent.vercel.app); the "not configured" banner appears
+> wherever a write would otherwise be attempted against an undeployed
+> contract.
 
 ## 1 — Declare both events (`/new`)
 
@@ -37,7 +38,10 @@ lands.
 ## 3 — Create the pair (`/new` → "New pair")
 
 `relation = BEFORE`, `minSeparationSeconds` set to your demo's minimum notice
-window (e.g. `3600` for one hour). This is immutable once created.
+window (e.g. `3600` for one hour). Leave "Enforce distinct source hosts"
+checked if your two events' sources are on different domains — the contract
+will reject pair creation outright if they share a canonical host. This pair
+is immutable once created.
 
 ## 4 — Finalize the certificate (`/p/[id]/observe`)
 
@@ -54,6 +58,15 @@ paste the certificate id and **Execute with certificate** — the gate flips to
 `EXECUTED` and shows an immutable execution receipt with a hash you can
 verify independently (`receipt_hash = sha256(gate_id, certificate_id, now)`).
 
+## 6 — Publish the protected action (`/g/[id]`)
+
+Once the gate shows `EXECUTED`, a "Publish execution notice" form appears —
+this calls `MigrationExecutionConsumer.publish_execution_notice`, the actual
+consequential state transition this whole flow exists to protect (not just a
+recorded acceptance on the Gate). Publish a notice; a second attempt for the
+same `gate_id` reverts as a replay, and the form disappears once a notice
+exists, replaced by the published text.
+
 ## Negative fixtures (from the build directive §12)
 
 - **Reversed order**: publish the execution notice before the proposal
@@ -67,7 +80,16 @@ verify independently (`receipt_hash = sha256(gate_id, certificate_id, now)`).
   `finalize_certificate` on a pair containing it resolves to
   `CERT_UNAVAILABLE`, never a fabricated relation.
 
-Automated equivalents of all three fixtures are exercised in
+- **Replayed publish**: call `publish_execution_notice` a second time for a
+  `gate_id` that already published — rejected as replay, independent of the
+  Gate's own one-time semantics.
+
+Automated equivalents of all these fixtures are exercised in
 `tests/contract/test_notary.py` (`test_before_derivation`,
-`test_relation_mismatch_is_invalid`, `test_source_unavailable_yields_unavailable_status`)
-and `tests/contract/test_gate.py` (`test_invalid_relation_rejected`).
+`test_relation_mismatch_is_invalid`, `test_source_unavailable_yields_unavailable_status`),
+`tests/contract/test_gate.py` (`test_invalid_relation_rejected`), and
+`tests/contract/test_consumer.py` (`test_publish_rejects_gate_still_armed`,
+`test_publish_rejects_certificate_id_mismatch`,
+`test_publish_rejects_stale_certificate`,
+`test_publish_rejects_inconclusive_certificate`,
+`test_publish_rejects_replay`).

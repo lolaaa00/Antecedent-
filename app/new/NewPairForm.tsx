@@ -24,8 +24,9 @@ export function NewPairForm() {
   const [minSeparationSeconds, setMinSeparationSeconds] = useState("0");
   const [maxSeparationSeconds, setMaxSeparationSeconds] = useState("0");
   const [sourceIndependencePolicy, setSourceIndependencePolicy] = useState(
-    "Sources for event A and event B must resolve to distinct canonical domains where the policy requires independence.",
+    "Sources for event A and event B must resolve to distinct canonical domains.",
   );
+  const [requireDistinctSourceHosts, setRequireDistinctSourceHosts] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function onSubmit(e: React.FormEvent) {
@@ -40,6 +41,7 @@ export function NewPairForm() {
       minSeparationSeconds,
       maxSeparationSeconds,
       sourceIndependencePolicy,
+      requireDistinctSourceHosts,
     });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
@@ -106,13 +108,26 @@ export function NewPairForm() {
           />
         </FieldWrapper>
       </div>
-      <FieldWrapper label="Source independence policy" htmlFor="policy" error={fieldErrors.sourceIndependencePolicy}>
+      <FieldWrapper label="Source independence policy (human-readable label)" htmlFor="policy" error={fieldErrors.sourceIndependencePolicy}>
         <TextInput
           id="policy"
           value={sourceIndependencePolicy}
           onChange={(e) => setSourceIndependencePolicy(e.target.value)}
         />
       </FieldWrapper>
+      <label className="flex items-start gap-2 text-sm text-carbon/80">
+        <input
+          type="checkbox"
+          checked={requireDistinctSourceHosts}
+          onChange={(e) => setRequireDistinctSourceHosts(e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          Enforce distinct source hosts — the contract rejects this pair at creation if event A
+          and event B share a canonical source host. This is the only independence guarantee the
+          contract can actually verify; it does not prove genuine editorial independence.
+        </span>
+      </label>
 
       <Button type="submit" disabled={!notary}>
         {notary ? "Create pair" : "Connect wallet on Studionet to create"}

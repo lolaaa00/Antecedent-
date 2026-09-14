@@ -13,6 +13,7 @@ genlayer_stub.install()
 
 import antecedent_notary  # noqa: E402
 import antecedent_gate  # noqa: E402
+import antecedent_consumer  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +33,16 @@ def notary():
 def gate():
     importlib.reload(antecedent_gate)
     return antecedent_gate.AntecedentGate()
+
+
+@pytest.fixture
+def make_consumer():
+    importlib.reload(antecedent_consumer)
+
+    def _make(gate_address: str):
+        return antecedent_consumer.MigrationExecutionConsumer(gate_address)
+
+    return _make
 
 
 @pytest.fixture

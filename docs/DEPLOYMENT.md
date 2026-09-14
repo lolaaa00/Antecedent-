@@ -13,8 +13,9 @@ correctly and is wired into CI.
 PRIVATE_KEY=0x... npx tsx scripts/deploy.ts
 ```
 
-This deploys `contracts/antecedent_notary.py` then `contracts/antecedent_gate.py`,
-waits for each to `FINALIZE`, extracts the deployed address from the
+This deploys `contracts/antecedent_notary.py`, then `contracts/antecedent_gate.py`,
+then `contracts/antecedent_consumer.py` (constructed with the Gate's deployed
+address), waits for each to `FINALIZE`, extracts the deployed address from the
 transaction's `txDataDecoded.contractAddress`, and writes
 `docs/DEPLOYMENT_RECORD.json` with: git SHA, each contract's SHA-256 and byte
 size, the deploy tx hash, the deployed address, and the finalization/execution
@@ -39,13 +40,16 @@ deployment transactions:
 | `AntecedentNotary` (retry) | `0x8f7a5c326f0cb001469e0a834b7d2d0d45a23ec42f0d8eae820526ff7a1b6ac6` | same: `NO_MAJORITY`, 0 votes |
 | Minimal probe contract (isolation test — a 12-line contract with one `u32` counter, no consensus/web/LLM calls at all) | `0x9096674e6a2e8481a8149c508c5c5dfceb2fb49f192a6f203b45079ff5b568e4` | **same failure**: `FINALIZED`, `NO_MAJORITY`, 0 votes committed/revealed |
 | `AntecedentNotary` (retry, later attempt) | `0xbc17edc9a35a7780ed8a12849d3680b101c68a7d77c385df115835e66b9d9c54` | same: `NO_MAJORITY`, 0 votes, `num_of_rounds: 0` |
+| `AntecedentNotary` (post-remediation, current source) | `0x131aed98562dfb87ea2d2ced7ad2fc758fd676393a8ff6c6dd54e7aa47a3c5d3` | same: `NO_MAJORITY`, execution `UNKNOWN` |
 
-This condition was re-checked at a later point in time (not immediately
-after the first attempts) and reproduced identically — the same
-`NO_MAJORITY` / 0-votes signature on a fourth independent transaction. This
-rules out a momentary blip and indicates a standing validator-pool
+This condition was re-checked repeatedly across a span of real time,
+including once more after the observation-consensus/timezone/evidence-digest
+remediation in this document's revision — every attempt against the current
+contract source reproduces the identical `NO_MAJORITY` / 0-votes signature.
+This rules out a momentary blip and indicates a standing validator-pool
 availability condition on Studionet at the time of this build, external to
-this repository.
+this repository and unrelated to the specific contract source being
+deployed.
 
 **Diagnosis.** The third transaction is decisive: a trivial contract with no
 nondeterministic logic at all — just `self.counter = 0` in `__init__` —
@@ -78,11 +82,41 @@ Set the resulting addresses in `.env.local`:
 ```bash
 NEXT_PUBLIC_NOTARY_ADDRESS=0x...
 NEXT_PUBLIC_GATE_ADDRESS=0x...
+NEXT_PUBLIC_CONSUMER_ADDRESS=0x...
 ```
 
 The frontend detects an unset address and shows a "not configured" notice on
 every page rather than silently rendering empty/fake state (see
 `components/NotDeployedNotice.tsx`).
+
+## Frontend hosting and the Linux lockfile fix
+
+The frontend is deployed at **https://antecedent.vercel.app** (Vercel,
+production). Vercel's build runners are Linux — this deployment is the real
+verification (not a local guess) that `npm ci` installs the correct native
+`@tailwindcss/oxide` / `lightningcss` binaries on Linux.
+
+The root cause of the original failure: this repository's `package-lock.json`
+was built up through several incremental `npm install --save-dev <pkg>`
+calls during development. Each of those calls only re-resolves the packages
+it touches — it does not always re-derive the **full cross-platform optional
+dependency matrix** for packages already in the tree. The result was a
+lockfile that recorded only the `darwin-x64` native binary variant for
+`@tailwindcss/oxide` and `lightningcss`, with no `linux-x64-gnu` (or any
+other Linux) entry at all — so a strict `npm ci` on Linux CI had nothing to
+install and the build failed at the native-binding-missing step.
+
+The fix was a clean `rm -rf node_modules package-lock.json && npm install`,
+which forces npm to fully re-resolve the dependency tree from scratch and
+correctly write every platform variant (`android-arm64`, `darwin-arm64`,
+`darwin-x64`, `freebsd-x64`, `linux-arm-gnueabihf`, `linux-arm64-gnu`,
+`linux-arm64-musl`, `linux-x64-gnu`, `linux-x64-musl`, `win32-arm64-msvc`,
+`win32-x64-msvc`) into the lockfile as `optional` entries gated by their own
+`os`/`cpu` fields. `npm ci` then picks the right one per platform. This was
+verified two ways: locally (`npm ci` still succeeds on this machine after the
+regeneration) and for real (the Vercel build above, on Linux, succeeded with
+the regenerated lockfile). No binary was vendored or hand-patched — the fix
+is the lockfile itself.
 
 ## Time primitive — needs live verification
 

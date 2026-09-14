@@ -12,16 +12,16 @@ def _build_valid_certificate(notary, stub, relation="BEFORE", min_sep=0):
     notary.seal_event("b")
 
     stub.WEB_FIXTURES[HTTPS_A] = "published 2024-01-01T00:00:00Z"
-    resp_a = '{"occurrence": "CONFIRMED", "effective_time": "2024-01-01T00:00:00+00:00", "time_basis": "EXPLICIT_SOURCE_TIME", "source_support": [], "reason": "ok"}'
+    resp_a = '{"occurrence": "CONFIRMED", "effective_time": "2024-01-01T00:00:00+00:00", "time_basis": "EXPLICIT_SOURCE_TIME", "source_support": [{"source_id": 1, "stance": "SUPPORTS", "excerpt": "x"}], "reason": "ok"}'
     stub.PROMPT_QUEUE.extend([resp_a, resp_a])
     notary.observe_event("a")
 
     stub.WEB_FIXTURES[HTTPS_B] = "published 2024-06-01T00:00:00Z"
-    resp_b = '{"occurrence": "CONFIRMED", "effective_time": "2024-06-01T00:00:00+00:00", "time_basis": "EXPLICIT_SOURCE_TIME", "source_support": [], "reason": "ok"}'
+    resp_b = '{"occurrence": "CONFIRMED", "effective_time": "2024-06-01T00:00:00+00:00", "time_basis": "EXPLICIT_SOURCE_TIME", "source_support": [{"source_id": 1, "stance": "SUPPORTS", "excerpt": "x"}], "reason": "ok"}'
     stub.PROMPT_QUEUE.extend([resp_b, resp_b])
     notary.observe_event("b")
 
-    notary.create_pair("p1", "a", "b", relation, min_sep, 0, "policy")
+    notary.create_pair("p1", "a", "b", relation, min_sep, 0, "policy", False)
     notary.finalize_certificate("cert1", "p1")
     return notary.get_pair("p1"), notary.get_certificate("cert1")
 

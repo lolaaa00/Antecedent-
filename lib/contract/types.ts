@@ -8,6 +8,9 @@ export type SourceSupport = {
   source_id: number;
   stance: "SUPPORTS" | "CONTRADICTS" | "UNCLEAR";
   excerpt: string;
+  canonical_url: string;
+  content_digest: string;
+  context_digest: string;
 };
 
 export type Observation = {
@@ -41,6 +44,7 @@ export type PairRecord = {
   min_separation_seconds: number;
   max_separation_seconds: number;
   source_independence_policy: string;
+  require_distinct_source_hosts: boolean;
   creator: string;
   created_at: number;
 };
@@ -50,12 +54,15 @@ export type CertificateRecord = {
   pair_hash: string;
   event_a_id: string;
   event_b_id: string;
+  event_a_definition_hash: string;
+  event_b_definition_hash: string;
   event_a_observation: Observation;
   event_b_observation: Observation;
   final_relation: string;
   separation_seconds: number;
   finalized_timestamp: number;
   status: CertificateStatus;
+  supersedes_commitment: string;
   certificate_hash: string;
 };
 
@@ -77,4 +84,12 @@ export type ExecutionReceipt = {
   executed_at: number;
   executor: string;
   receipt_hash: string;
+};
+
+export type PublishedNotice = {
+  gate_id: string;
+  certificate_id: string;
+  notice: string;
+  published_at: number;
+  publisher: string;
 };

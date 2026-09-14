@@ -37,6 +37,7 @@ export const createPairSchema = z
     minSeparationSeconds: z.coerce.number().int().min(0).default(0),
     maxSeparationSeconds: z.coerce.number().int().min(0).default(0),
     sourceIndependencePolicy: z.string().min(1).max(300),
+    requireDistinctSourceHosts: z.boolean().default(false),
   })
   .refine((v) => v.eventAId !== v.eventBId, {
     message: "event A and event B must differ",
@@ -45,6 +46,10 @@ export const createPairSchema = z
   .refine((v) => v.maxSeparationSeconds === 0 || v.minSeparationSeconds <= v.maxSeparationSeconds, {
     message: "min separation cannot exceed max separation",
     path: ["maxSeparationSeconds"],
+  })
+  .refine((v) => v.relation !== "SAME_DAY" || v.minSeparationSeconds < 86400, {
+    message: "min separation must be under 86400 seconds for SAME_DAY — no timestamp pair could ever satisfy a full day",
+    path: ["minSeparationSeconds"],
   });
 export type CreatePairInput = z.infer<typeof createPairSchema>;
 

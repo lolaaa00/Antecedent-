@@ -6,6 +6,7 @@
  */
 export const NOTARY_ADDRESS = (process.env.NEXT_PUBLIC_NOTARY_ADDRESS ?? "") as `0x${string}` | "";
 export const GATE_ADDRESS = (process.env.NEXT_PUBLIC_GATE_ADDRESS ?? "") as `0x${string}` | "";
+export const CONSUMER_ADDRESS = (process.env.NEXT_PUBLIC_CONSUMER_ADDRESS ?? "") as `0x${string}` | "";
 
 export function requireAddress(value: string, label: string): `0x${string}` {
   if (!value || !/^0x[0-9a-fA-F]{40}$/.test(value)) {

@@ -2,6 +2,11 @@
 
 **Not just what happened. What happened first.**
 
+Live: **https://antecedent.vercel.app** — contracts are not yet deployed to
+Studionet (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the honest,
+currently-blocked status); the frontend is fully reachable and shows "not
+configured" wherever a write would otherwise hit an undeployed contract.
+
 Antecedent is a consensus-backed **sequence notary** on GenLayer Studionet. It
 certifies that one declared public event materially occurred **BEFORE**,
 **AFTER**, **SAME_DAY**, or was **SUPERSEDED BY** another declared public
@@ -25,13 +30,18 @@ certificate is produced. See [docs/CONSENSUS.md](docs/CONSENSUS.md).
 
 ## Architecture
 
-Two contracts:
+Three contracts:
 
 - **`contracts/antecedent_notary.py`** — event definitions, sealing, consensus
-  observation, deterministic relation derivation, immutable certificates.
+  observation, deterministic relation derivation, immutable certificates,
+  digest-bound evidence commitments.
 - **`contracts/antecedent_gate.py`** — a pure, non-semantic downstream
   consumer: it reads a certificate from the notary and records whether a
   consequential action is eligible (executable eligibility as shared state).
+- **`contracts/antecedent_consumer.py`** — `MigrationExecutionConsumer`, the
+  actual protected downstream action: it can publish a canonical execution
+  notice only once a specific gate has reached `EXECUTED` against a matching
+  certificate.
 
 Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/CONTRACT_SURFACE.md](docs/CONTRACT_SURFACE.md).
@@ -52,7 +62,7 @@ Framer Motion · Zod · viem · `genlayer-js` pinned exactly to `1.1.8`.
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in NEXT_PUBLIC_NOTARY_ADDRESS / NEXT_PUBLIC_GATE_ADDRESS after deploying
+cp .env.example .env.local   # fill in NEXT_PUBLIC_NOTARY_ADDRESS / NEXT_PUBLIC_GATE_ADDRESS / NEXT_PUBLIC_CONSUMER_ADDRESS after deploying
 npm run dev
 ```
 
@@ -72,6 +82,12 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+`npm ci` on Linux (verified for real on Vercel's Linux build runners, not
+just asserted) correctly installs the Linux-native `@tailwindcss/oxide` /
+`lightningcss` binaries — an earlier lockfile only recorded the macOS variant
+after incremental `npm install` calls; see
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the root cause and fix.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the real deployment attempt
 record (a genuine Studionet infrastructure blocker is documented there, not

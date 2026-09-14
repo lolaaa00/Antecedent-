@@ -13,7 +13,7 @@
     "test:watch": "vitest",
     "test:contracts": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests/contract",
     "test:all": "npm run test:contracts && npm run test",
-    "contracts:compile-check": "python3 -m py_compile contracts/antecedent_notary.py contracts/antecedent_gate.py",
+    "contracts:compile-check": "python3 -m py_compile contracts/antecedent_notary.py contracts/antecedent_gate.py contracts/antecedent_consumer.py",
     "check:network": "tsx scripts/check-network.ts"
   },
   "dependencies": {

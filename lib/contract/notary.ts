@@ -78,6 +78,7 @@ export function notaryAdapter(client: AnyClient, address: `0x${string}`) {
       minSeparationSeconds: number;
       maxSeparationSeconds: number;
       sourceIndependencePolicy: string;
+      requireDistinctSourceHosts: boolean;
     }): Promise<`0x${string}`> {
       return client.writeContract({
         address,
@@ -90,6 +91,7 @@ export function notaryAdapter(client: AnyClient, address: `0x${string}`) {
           args.minSeparationSeconds,
           args.maxSeparationSeconds,
           args.sourceIndependencePolicy,
+          args.requireDistinctSourceHosts,
         ],
         value: 0n,
       });

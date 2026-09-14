@@ -17,13 +17,13 @@ import { execSync } from "node:child_process";
 import { createClient, createAccount } from "genlayer-js";
 import { NETWORK, CANONICAL_CHAIN_ID, assertCanonicalNetworkOrThrow } from "../lib/genlayer/network";
 
-async function deployOne(client: ReturnType<typeof createClient>, path: string, label: string) {
+async function deployOne(client: ReturnType<typeof createClient>, path: string, label: string, args: unknown[] = []) {
   const code = readFileSync(path);
   const sha256 = createHash("sha256").update(code).digest("hex");
 
   console.log(`\n[${label}] deploying ${path} (${code.length} bytes, sha256 ${sha256})`);
 
-  const txHash = await client.deployContract({ code, args: [] });
+  const txHash = await client.deployContract({ code, args: args as never[] });
   console.log(`[${label}] deploy tx: ${txHash}`);
 
   const receipt = await client.waitForTransactionReceipt({
@@ -64,18 +64,26 @@ async function main() {
 
   const notary = await deployOne(client, "contracts/antecedent_notary.py", "AntecedentNotary");
   const gate = await deployOne(client, "contracts/antecedent_gate.py", "AntecedentGate");
+  const consumer = await deployOne(
+    client,
+    "contracts/antecedent_consumer.py",
+    "MigrationExecutionConsumer",
+    [gate.address],
+  );
 
   const record = {
     network: { chainId: NETWORK.id, rpc: NETWORK.rpcUrls?.default?.http?.[0] },
     gitSha,
     signer: account.address,
     deployedAt: new Date().toISOString(),
-    contracts: [notary, gate],
+    contracts: [notary, gate, consumer],
   };
 
   writeFileSync("docs/DEPLOYMENT_RECORD.json", JSON.stringify(record, null, 2));
   console.log("\nWrote docs/DEPLOYMENT_RECORD.json");
-  console.log(`\nSet these in .env.local:\nNEXT_PUBLIC_NOTARY_ADDRESS=${notary.address}\nNEXT_PUBLIC_GATE_ADDRESS=${gate.address}`);
+  console.log(
+    `\nSet these in .env.local:\nNEXT_PUBLIC_NOTARY_ADDRESS=${notary.address}\nNEXT_PUBLIC_GATE_ADDRESS=${gate.address}\nNEXT_PUBLIC_CONSUMER_ADDRESS=${consumer.address}`,
+  );
 }
 
 main().catch((err) => {
