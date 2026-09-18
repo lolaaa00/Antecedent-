@@ -1,23 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { shortHash } from "@/lib/genlayer/explorer";
+import { WalletModal } from "./WalletModal";
 
 export function WalletButton() {
   const wallet = useWallet();
-
-  if (wallet.status === "NOT_DETECTED") {
-    return (
-      <a
-        href="https://metamask.io/download/"
-        target="_blank"
-        rel="noreferrer"
-        className="font-meta text-xs uppercase tracking-wide text-vermilion underline decoration-dotted"
-      >
-        Install a wallet
-      </a>
-    );
-  }
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (wallet.status === "CONNECTED") {
     return (
@@ -46,12 +36,15 @@ export function WalletButton() {
   }
 
   return (
-    <button
-      onClick={wallet.connect}
-      disabled={wallet.status === "CONNECTING"}
-      className="border border-carbon px-3 py-1.5 font-meta text-xs uppercase tracking-wide hover:bg-carbon hover:text-ivory transition-colors disabled:opacity-50"
-    >
-      {wallet.status === "CONNECTING" ? "Connecting…" : "Connect wallet"}
-    </button>
+    <>
+      <button
+        onClick={() => setModalOpen(true)}
+        disabled={wallet.status === "CONNECTING"}
+        className="border border-carbon px-3 py-1.5 font-meta text-xs uppercase tracking-wide hover:bg-carbon hover:text-ivory transition-colors disabled:opacity-50"
+      >
+        {wallet.status === "CONNECTING" ? "Connecting…" : "Connect wallet"}
+      </button>
+      {modalOpen && <WalletModal onClose={() => setModalOpen(false)} />}
+    </>
   );
 }

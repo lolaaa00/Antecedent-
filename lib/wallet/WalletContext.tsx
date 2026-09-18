@@ -1,27 +1,9 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useAccount, useConnect, useDisconnect, useSwitchChain, useConnectorClient } from "wagmi";
 import { CANONICAL_CHAIN_ID } from "@/lib/genlayer/network";
-
-type Eip1193Provider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on: (event: string, handler: (...args: unknown[]) => void) => void;
-  removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
-};
-
-declare global {
-  interface Window {
-    ethereum?: Eip1193Provider;
-  }
-}
+import { studionetChain } from "./wagmiConfig";
 
 export type WalletStatus =
   | "NOT_DETECTED"
@@ -29,6 +11,12 @@ export type WalletStatus =
   | "CONNECTING"
   | "CONNECTED"
   | "WRONG_NETWORK";
+
+type Eip1193Provider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+};
 
 export type WalletState = {
   status: WalletStatus;
@@ -47,144 +35,57 @@ type WalletContextValue = WalletState & {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
-const STUDIONET_HEX = `0x${CANONICAL_CHAIN_ID.toString(16)}`;
-
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<WalletState>({
-    status: "DISCONNECTED",
-    address: null,
-    chainId: null,
-    provider: null,
-    error: null,
-  });
+  const { address, chainId, isConnected, isConnecting } = useAccount();
+  const { connectAsync, connectors } = useConnect();
+  const { disconnectAsync } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
+  const { data: connectorClient } = useConnectorClient();
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!window.ethereum) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time provider detection on mount
-      setState((s) => ({ ...s, status: "NOT_DETECTED" }));
-      return;
-    }
-    setState((s) => ({ ...s, provider: window.ethereum! }));
-  }, []);
+  const status: WalletStatus = useMemo(() => {
+    if (isConnecting) return "CONNECTING";
+    if (!isConnected) return "DISCONNECTED";
+    if (chainId !== CANONICAL_CHAIN_ID) return "WRONG_NETWORK";
+    return "CONNECTED";
+  }, [isConnected, isConnecting, chainId]);
 
-  const refreshChain = useCallback(async (provider: Eip1193Provider) => {
-    const chainIdHex = (await provider.request({ method: "eth_chainId" })) as string;
-    const chainId = parseInt(chainIdHex, 16);
-    return chainId;
-  }, []);
+  // Expose the connector's EIP-1193 provider for genlayer-js write clients
+  const provider = useMemo<Eip1193Provider | null>(() => {
+    if (!connectorClient) return null;
+    return connectorClient.transport as unknown as Eip1193Provider;
+  }, [connectorClient]);
 
-  const connect = useCallback(async () => {
-    const provider = typeof window !== "undefined" ? window.ethereum : undefined;
-    if (!provider) {
-      setState((s) => ({ ...s, status: "NOT_DETECTED", error: "No injected wallet detected" }));
-      return;
-    }
-    setState((s) => ({ ...s, status: "CONNECTING", error: null }));
-    try {
-      const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
-      const chainId = await refreshChain(provider);
-      const address = accounts[0] as `0x${string}` | undefined;
-      if (!address) {
-        setState((s) => ({ ...s, status: "DISCONNECTED", error: "No account returned by wallet" }));
-        return;
-      }
-      setState({
-        status: chainId === CANONICAL_CHAIN_ID ? "CONNECTED" : "WRONG_NETWORK",
-        address,
-        chainId,
-        provider,
-        error: null,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Wallet connection failed";
-      const rejected = /rejected|denied/i.test(message);
-      setState((s) => ({
-        ...s,
-        status: "DISCONNECTED",
-        error: rejected ? "USER_REJECTED" : message,
-      }));
-    }
-  }, [refreshChain]);
+  const connect = useMemo(
+    () => async () => {
+      const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
+      if (injected) await connectAsync({ connector: injected });
+    },
+    [connectAsync, connectors],
+  );
 
-  const disconnect = useCallback(() => {
-    setState((s) => ({ ...s, status: "DISCONNECTED", address: null, chainId: null, error: null }));
-  }, []);
+  const disconnect = useMemo(
+    () => () => { disconnectAsync(); },
+    [disconnectAsync],
+  );
 
-  const switchToStudionet = useCallback(async () => {
-    const provider = state.provider;
-    if (!provider) return;
-    try {
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: STUDIONET_HEX }],
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      // 4902 = chain not added to wallet yet
-      if (message.includes("4902")) {
-        await provider.request({
-          method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: STUDIONET_HEX,
-              chainName: "GenLayer Studionet",
-              nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-              rpcUrls: ["https://studio.genlayer.com/api"],
-              blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
-            },
-          ],
-        });
-      }
-    }
-  }, [state.provider]);
-
-  useEffect(() => {
-    const provider = state.provider;
-    if (!provider) return;
-
-    const handleAccountsChanged = (...args: unknown[]) => {
-      const accounts = args[0] as string[];
-      if (!accounts || accounts.length === 0) {
-        setState((s) => ({ ...s, status: "DISCONNECTED", address: null, error: "ACCOUNT_REMOVED" }));
-        return;
-      }
-      setState((s) => ({ ...s, address: accounts[0] as `0x${string}` }));
-    };
-
-    const handleChainChanged = (...args: unknown[]) => {
-      const chainIdHex = args[0] as string;
-      const chainId = parseInt(chainIdHex, 16);
-      setState((s) => ({
-        ...s,
-        chainId,
-        status: chainId === CANONICAL_CHAIN_ID ? "CONNECTED" : "WRONG_NETWORK",
-      }));
-    };
-
-    const handleDisconnect = () => {
-      setState((s) => ({ ...s, status: "DISCONNECTED", address: null, error: "PROVIDER_DISCONNECT" }));
-    };
-
-    provider.on("accountsChanged", handleAccountsChanged);
-    provider.on("chainChanged", handleChainChanged);
-    provider.on("disconnect", handleDisconnect);
-    return () => {
-      provider.removeListener("accountsChanged", handleAccountsChanged);
-      provider.removeListener("chainChanged", handleChainChanged);
-      provider.removeListener("disconnect", handleDisconnect);
-    };
-  }, [state.provider]);
+  const switchToStudionet = useMemo(
+    () => async () => { await switchChainAsync({ chainId: studionetChain.id }); },
+    [switchChainAsync],
+  );
 
   const value = useMemo<WalletContextValue>(
     () => ({
-      ...state,
+      status,
+      address: address ?? null,
+      chainId: chainId ?? null,
+      provider,
+      error: null,
       connect,
       disconnect,
       switchToStudionet,
-      isCorrectNetwork: state.chainId === CANONICAL_CHAIN_ID,
+      isCorrectNetwork: chainId === CANONICAL_CHAIN_ID,
     }),
-    [state, connect, disconnect, switchToStudionet],
+    [status, address, chainId, provider, connect, disconnect, switchToStudionet],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
