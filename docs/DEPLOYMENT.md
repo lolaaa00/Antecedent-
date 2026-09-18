@@ -24,7 +24,52 @@ record.
 
 `PRIVATE_KEY` must never be committed — see `.env.example` and `.gitignore`.
 
-## Real deployment attempt against Studionet — result
+## Live deployment — Studionet, chain 61999
+
+**All three contracts are deployed and finalized on Studionet as of
+2026-09-18.** Verified two independent ways: the `genlayer` CLI's own
+receipt (validator votes, finalization) and, separately, the public block
+explorer (a different service, reading the network's own indexed state) —
+so this isn't a single tool's claim.
+
+| Contract | Address | Deploy tx | Explorer |
+|---|---|---|---|
+| `AntecedentNotary` | `0xbDb56Ab74E0fdeeAA9890a6791831036cB4138bF` | `0xb0333ad725a0690b43a93b604b4b0a16204d0be02c29342f166d48d4371e6982` | [tx](https://explorer-studio.genlayer.com/tx/0xb0333ad725a0690b43a93b604b4b0a16204d0be02c29342f166d48d4371e6982) · [address](https://explorer-studio.genlayer.com/address/0xbDb56Ab74E0fdeeAA9890a6791831036cB4138bF) |
+| `AntecedentGate` | `0x5e995bE41d61C03BA6fDE236FB81A8D18e939DcD` | `0xce2400a614a5b46b83fcdcc0a7bffb5f4216c10b5dc4ce05759bac6926a7a74e` | [tx](https://explorer-studio.genlayer.com/tx/0xce2400a614a5b46b83fcdcc0a7bffb5f4216c10b5dc4ce05759bac6926a7a74e) · [address](https://explorer-studio.genlayer.com/address/0x5e995bE41d61C03BA6fDE236FB81A8D18e939DcD) |
+| `MigrationExecutionConsumer` | `0x649051022D57B34e79e7283c81fCf56F234350b5` | `0xceecd31da30142a8f0a1e9416e29a7a45f5bfc6d2e4cd955acb8767da39580ff` | [tx](https://explorer-studio.genlayer.com/tx/0xceecd31da30142a8f0a1e9416e29a7a45f5bfc6d2e4cd955acb8767da39580ff) · [address](https://explorer-studio.genlayer.com/address/0x649051022D57B34e79e7283c81fCf56F234350b5) |
+
+- Signer: `0xaa18eCD158AEC67c75A51768b747cb3247A21689`
+- Git SHA at deployment: `8b642f782a8e84b1c93d88c07b8fbb54e8de00e6`
+- Source SHA-256: `antecedent_notary.py` `581c8d1381a902a70eca0f1ae8b1666a444086f8281c3a8e6fae0efb978f94c3` (38,700 bytes) · `antecedent_gate.py` `9f4c78d84303c11300c89abf5c861660aa5a2470f6a62bbb6f9a142882ec4df4` (5,827 bytes) · `antecedent_consumer.py` `96e760833fc1f02fa22046f08c803bda76c6f3cb3eb2c1cdf3cb54efb6afa934` (3,463 bytes)
+- Each deploy tx: `status_name: FINALIZED`, `result_name: MAJORITY_AGREE`, 5/5
+  validator votes `AGREE` (Notary and Gate); the Consumer deploy landed 3
+  `AGREE` / 2 `IDLE` out of 5, still a clean majority.
+- Frontend redeployed to **https://antecedent.vercel.app** with all three
+  addresses configured as Vercel production environment variables and
+  baked into the build (`NEXT_PUBLIC_NOTARY_ADDRESS`,
+  `NEXT_PUBLIC_GATE_ADDRESS`, `NEXT_PUBLIC_CONSUMER_ADDRESS`) — the "not
+  configured" banners are gone on all three contracts' pages.
+
+**Known follow-up: read-path propagation lag.** Immediately after
+deployment, `genlayer schema` / `genlayer call` against the new addresses
+returned `Contract ... not found`, even though the explorer already showed
+the deploy as `FINALIZED` and indexed. This is a different symptom from the
+earlier blocker (that one was zero validators *ever* engaging; this is state
+becoming queryable via the read RPC after a real, voted-on finalization) and
+is consistent with Studio's backend still catching up generally after the
+period of validator-assignment trouble documented below. Re-verify with
+`genlayer call <address> list_event_ids` (Notary) /
+`list_gate_ids` (Gate) / `list_published_gate_ids` (Consumer) before relying
+on this for a live demo, and re-check the frontend pages once reads
+resolve — this doc will be updated once confirmed.
+
+## Historical: the validator-assignment blocker (resolved)
+
+The section below is kept as an honest record of the ~24 hours this
+deployment was genuinely blocked, and how that was diagnosed — not backfilled
+after the fact.
+
+### Real deployment attempts against Studionet — earlier results
 
 This repository ships with contract source that reaches a **funded** signer
 successfully (`0xaa18eCD158AEC67c75A51768b747cb3247A21689`, 10 GEN, verified
@@ -141,16 +186,18 @@ regeneration) and for real (the Vercel build above, on Linux, succeeded with
 the regenerated lockfile). No binary was vendored or hand-patched — the fix
 is the lockfile itself.
 
-## Time primitive — needs live verification
+## Time primitive — still needs a live write-path check
 
 `gl.vm.get_current_transaction_time()` is used throughout
-(`AntecedentNotary._now`, `AntecedentGate._now`) as the deterministic
-GenVM transaction-time primitive for `created_at` / `finalized_timestamp` /
-gate freshness checks, per the stable-runtime API surface named in the build
-directive. Because the deployment above did not reach a successful
-execution, this call has **not yet been exercised on live Studionet**. Before
-relying on it for a real freshness/deadline decision, re-verify against a
-live, successfully-executing deployment that it returns a GenVM-consensus
-timestamp (not wall-clock time from any single node) — this is exactly the
-kind of check §7 of the build directive asks for before trusting a time
-primitive in a critical state transition.
+(`AntecedentNotary._now`, `AntecedentGate._now`, `MigrationExecutionConsumer._now`)
+as the deterministic GenVM transaction-time primitive for `created_at` /
+`finalized_timestamp` / gate freshness checks, per the stable-runtime API
+surface named in the build directive. All three `__init__` methods only
+initialize storage collections — none of them call `_now()` — so the
+successful deployments above confirm the *contracts* are live and callable,
+but do not yet exercise this specific primitive. The first `create_pair`,
+`create_gate`, or `publish_execution_notice` write call against the live
+contracts will exercise it for real; re-verify then that it returns a
+GenVM-consensus timestamp (not wall-clock time from any single node) — this
+is exactly the kind of check §7 of the build directive asks for before
+trusting a time primitive in a critical state transition.

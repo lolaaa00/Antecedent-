@@ -2,10 +2,12 @@
 
 **Not just what happened. What happened first.**
 
-Live: **https://antecedent.vercel.app** — contracts are not yet deployed to
-Studionet (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the honest,
-currently-blocked status); the frontend is fully reachable and shows "not
-configured" wherever a write would otherwise hit an undeployed contract.
+Live: **https://antecedent.vercel.app** — all three contracts
+(`AntecedentNotary`, `AntecedentGate`, `MigrationExecutionConsumer`) are
+deployed and finalized on Studionet, verified independently via the
+`genlayer` CLI and the public block explorer. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for addresses, tx hashes, explorer
+links, and a currently-open read-propagation-lag note.
 
 Antecedent is a consensus-backed **sequence notary** on GenLayer Studionet. It
 certifies that one declared public event materially occurred **BEFORE**,
