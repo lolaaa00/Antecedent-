@@ -34,7 +34,8 @@ async function deployOne(client: ReturnType<typeof createClient>, path: string, 
   });
 
   const decoded = (receipt as { txDataDecoded?: { contractAddress?: string } }).txDataDecoded;
-  const address = decoded?.contractAddress;
+  const dataField = (receipt as { data?: { contract_address?: string } }).data;
+  const address = decoded?.contractAddress ?? dataField?.contract_address;
   const statusName = (receipt as { statusName?: string }).statusName;
   const executionResultName = (receipt as { txExecutionResultName?: string }).txExecutionResultName;
 

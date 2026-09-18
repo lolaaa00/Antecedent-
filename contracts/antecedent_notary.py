@@ -91,6 +91,7 @@ _PRIVATE_HOST_FRAGMENTS = (
 # ---------------------------------------------------------------------------
 
 
+@allow_storage
 @dataclass
 class SourceSupport:
     source_id: u32
@@ -101,6 +102,7 @@ class SourceSupport:
     context_digest: str
 
 
+@allow_storage
 @dataclass
 class Observation:
     occurrence: str
@@ -111,6 +113,7 @@ class Observation:
     evidence_hash: str
 
 
+@allow_storage
 @dataclass
 class Event:
     event_id: str
@@ -124,6 +127,7 @@ class Event:
     observation: Observation
 
 
+@allow_storage
 @dataclass
 class Pair:
     pair_hash: str
@@ -140,6 +144,7 @@ class Pair:
     created_at: u64
 
 
+@allow_storage
 @dataclass
 class Certificate:
     certificate_id: str
@@ -171,11 +176,7 @@ class AntecedentNotary(gl.Contract):
     event_ids: DynArray[str]
 
     def __init__(self):
-        self.events = TreeMap()
-        self.pairs = TreeMap()
-        self.certificates = TreeMap()
-        self.pair_ids = DynArray()
-        self.event_ids = DynArray()
+        pass
 
     # -- helpers --------------------------------------------------------
 

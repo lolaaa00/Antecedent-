@@ -33,6 +33,7 @@ GATE_STATUS_EXECUTED = "EXECUTED"
 MAX_NOTICE_LEN = 2000
 
 
+@allow_storage
 @dataclass
 class PublishedNotice:
     gate_id: str
@@ -49,8 +50,6 @@ class MigrationExecutionConsumer(gl.Contract):
 
     def __init__(self, gate_address: str):
         self.gate_address = Address(gate_address)
-        self.notices = TreeMap()
-        self.published_gate_ids = DynArray()
 
     def _now(self) -> u64:
         return u64(gl.vm.get_current_transaction_time())

@@ -28,6 +28,7 @@ GATE_STATUS_EXECUTED = "EXECUTED"
 CERT_VALID = "VALID"
 
 
+@allow_storage
 @dataclass
 class GateRule:
     gate_id: str
@@ -41,6 +42,7 @@ class GateRule:
     created_at: u64
 
 
+@allow_storage
 @dataclass
 class ExecutionReceipt:
     gate_id: str
@@ -57,10 +59,7 @@ class AntecedentGate(gl.Contract):
     gate_ids: DynArray[str]
 
     def __init__(self):
-        self.gates = TreeMap()
-        self.receipts = TreeMap()
-        self.executed_certificate_ids = TreeMap()
-        self.gate_ids = DynArray()
+        pass
 
     def _now(self) -> u64:
         return u64(gl.vm.get_current_transaction_time())
