@@ -15,8 +15,8 @@ PRIVATE_KEY=0x... npx tsx scripts/deploy.ts
 
 This deploys `contracts/antecedent_notary.py`, then `contracts/antecedent_gate.py`,
 then `contracts/antecedent_consumer.py` (constructed with the Gate's deployed
-address), waits for each to `FINALIZE`, extracts the deployed address from the
-transaction's `txDataDecoded.contractAddress`, and writes
+address), waits for each to `FINALIZE`, extracts the deployed address from
+`receipt.data.contract_address` (falling back to `txDataDecoded.contractAddress`), and writes
 `docs/DEPLOYMENT_RECORD.json` with: git SHA, each contract's SHA-256 and byte
 size, the deploy tx hash, the deployed address, and the finalization/execution
 result. It refuses to run without `PRIVATE_KEY` and never fabricates a
@@ -27,41 +27,23 @@ record.
 ## Live deployment — Studionet, chain 61999
 
 **All three contracts are deployed and finalized on Studionet as of
-2026-09-18.** Verified two independent ways: the `genlayer` CLI's own
-receipt (validator votes, finalization) and, separately, the public block
-explorer (a different service, reading the network's own indexed state) —
-so this isn't a single tool's claim.
+2026-09-19.** Deployed via `npx tsx scripts/deploy.ts` (genlayer-js SDK),
+5/5 validator `AGREE` on all three contracts.
 
 | Contract | Address | Deploy tx | Explorer |
 |---|---|---|---|
-| `AntecedentNotary` | `0xbDb56Ab74E0fdeeAA9890a6791831036cB4138bF` | `0xb0333ad725a0690b43a93b604b4b0a16204d0be02c29342f166d48d4371e6982` | [tx](https://explorer-studio.genlayer.com/tx/0xb0333ad725a0690b43a93b604b4b0a16204d0be02c29342f166d48d4371e6982) · [address](https://explorer-studio.genlayer.com/address/0xbDb56Ab74E0fdeeAA9890a6791831036cB4138bF) |
-| `AntecedentGate` | `0x5e995bE41d61C03BA6fDE236FB81A8D18e939DcD` | `0xce2400a614a5b46b83fcdcc0a7bffb5f4216c10b5dc4ce05759bac6926a7a74e` | [tx](https://explorer-studio.genlayer.com/tx/0xce2400a614a5b46b83fcdcc0a7bffb5f4216c10b5dc4ce05759bac6926a7a74e) · [address](https://explorer-studio.genlayer.com/address/0x5e995bE41d61C03BA6fDE236FB81A8D18e939DcD) |
-| `MigrationExecutionConsumer` | `0x649051022D57B34e79e7283c81fCf56F234350b5` | `0xceecd31da30142a8f0a1e9416e29a7a45f5bfc6d2e4cd955acb8767da39580ff` | [tx](https://explorer-studio.genlayer.com/tx/0xceecd31da30142a8f0a1e9416e29a7a45f5bfc6d2e4cd955acb8767da39580ff) · [address](https://explorer-studio.genlayer.com/address/0x649051022D57B34e79e7283c81fCf56F234350b5) |
+| `AntecedentNotary` | `0x88Cd00CfBca1443FD8a4aABC1Abfb9B43014110b` | `0xe95eef81ba1c039bdf3af981ac6dac6239d26dd0ae1068519a9cf2e781281ca5` | [tx](https://explorer-studio.genlayer.com/tx/0xe95eef81ba1c039bdf3af981ac6dac6239d26dd0ae1068519a9cf2e781281ca5) · [address](https://explorer-studio.genlayer.com/address/0x88Cd00CfBca1443FD8a4aABC1Abfb9B43014110b) |
+| `AntecedentGate` | `0x84F85e3Fb9bfb73CA2857ffEBE8e76Dcf168D844` | `0x96ac098e52120e3c4a6fb3442acf9731c65cff570403e3dcdd096573e7543eac` | [tx](https://explorer-studio.genlayer.com/tx/0x96ac098e52120e3c4a6fb3442acf9731c65cff570403e3dcdd096573e7543eac) · [address](https://explorer-studio.genlayer.com/address/0x84F85e3Fb9bfb73CA2857ffEBE8e76Dcf168D844) |
+| `MigrationExecutionConsumer` | `0xc967Ec62cB5FcE08cD28D8F1e472a5356CAb3D65` | `0xff46605671bc8fc63c249af45c80cb4c00570dc3d2695a97dcf61ec331bd235f` | [tx](https://explorer-studio.genlayer.com/tx/0xff46605671bc8fc63c249af45c80cb4c00570dc3d2695a97dcf61ec331bd235f) · [address](https://explorer-studio.genlayer.com/address/0xc967Ec62cB5FcE08cD28D8F1e472a5356CAb3D65) |
 
-- Signer: `0xaa18eCD158AEC67c75A51768b747cb3247A21689`
-- Git SHA at deployment: `8b642f782a8e84b1c93d88c07b8fbb54e8de00e6`
-- Source SHA-256: `antecedent_notary.py` `581c8d1381a902a70eca0f1ae8b1666a444086f8281c3a8e6fae0efb978f94c3` (38,700 bytes) · `antecedent_gate.py` `9f4c78d84303c11300c89abf5c861660aa5a2470f6a62bbb6f9a142882ec4df4` (5,827 bytes) · `antecedent_consumer.py` `96e760833fc1f02fa22046f08c803bda76c6f3cb3eb2c1cdf3cb54efb6afa934` (3,463 bytes)
-- Each deploy tx: `status_name: FINALIZED`, `result_name: MAJORITY_AGREE`, 5/5
-  validator votes `AGREE` (Notary and Gate); the Consumer deploy landed 3
-  `AGREE` / 2 `IDLE` out of 5, still a clean majority.
-- Frontend redeployed to **https://antecedent.vercel.app** with all three
-  addresses configured as Vercel production environment variables and
-  baked into the build (`NEXT_PUBLIC_NOTARY_ADDRESS`,
-  `NEXT_PUBLIC_GATE_ADDRESS`, `NEXT_PUBLIC_CONSUMER_ADDRESS`) — the "not
-  configured" banners are gone on all three contracts' pages.
-
-**Known follow-up: read-path propagation lag.** Immediately after
-deployment, `genlayer schema` / `genlayer call` against the new addresses
-returned `Contract ... not found`, even though the explorer already showed
-the deploy as `FINALIZED` and indexed. This is a different symptom from the
-earlier blocker (that one was zero validators *ever* engaging; this is state
-becoming queryable via the read RPC after a real, voted-on finalization) and
-is consistent with Studio's backend still catching up generally after the
-period of validator-assignment trouble documented below. Re-verify with
-`genlayer call <address> list_event_ids` (Notary) /
-`list_gate_ids` (Gate) / `list_published_gate_ids` (Consumer) before relying
-on this for a live demo, and re-check the frontend pages once reads
-resolve — this doc will be updated once confirmed.
+- Signer: `0x834942701bC9b5eb3F511378AC84EDdeA93f2C8b`
+- Git SHA at deployment: `982020f` (branch `main`)
+- Source SHA-256: `antecedent_notary.py` `86f60d9c0f63e3182ce41d5fc7aac6b68c6ff6c2260fd3aad9520ef77a911ad4` (38,616 bytes) · `antecedent_gate.py` `f409cc4cc36c42655390ebf244870e6cef26a75e0e36308fbc06e079c043644b` (5,720 bytes) · `antecedent_consumer.py` `16775081c136a4a780b5f5746aedae2642ff90f3aa6e6f74fe3404c25bc12a5a` (3,400 bytes)
+- Full machine-readable record: [`docs/DEPLOYMENT_RECORD.json`](DEPLOYMENT_RECORD.json)
+- Frontend deployed to **https://antecedent.vercel.app** with all three
+  addresses set as Vercel production environment variables
+  (`NEXT_PUBLIC_NOTARY_ADDRESS`, `NEXT_PUBLIC_GATE_ADDRESS`,
+  `NEXT_PUBLIC_CONSUMER_ADDRESS`) — baked into the build.
 
 ## Historical: the validator-assignment blocker (resolved)
 
