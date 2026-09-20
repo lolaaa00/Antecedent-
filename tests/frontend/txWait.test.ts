@@ -76,12 +76,21 @@ describe("waitForFinality", () => {
     expect(result.status).toBe("ERROR");
   });
 
-  it("returns ERROR for any unknown execution result", async () => {
+  it("returns ERROR for any unknown explicit execution result", async () => {
     const result = await waitForFinality(
       makeClient({ statusName: "FINALIZED", txExecutionResultName: "SOME_FUTURE_VALUE" }),
       HASH,
     );
     expect(result.status).toBe("ERROR");
     expect(result.message).toMatch(/unexpected consensus result/i);
+  });
+
+  it("returns SUCCESS when txExecutionResultName is undefined on a FINALIZED receipt", async () => {
+    // GenLayer SDK sometimes omits this field on successful receipts.
+    const result = await waitForFinality(
+      makeClient({ statusName: "FINALIZED", txExecutionResultName: undefined }),
+      HASH,
+    );
+    expect(result.status).toBe("SUCCESS");
   });
 });

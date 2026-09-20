@@ -37,8 +37,10 @@ export async function waitForFinality(client: AnyClient, hash: `0x${string}`): P
     return { status: "ERROR", message };
   }
 
-  // Any result other than MAJORITY_AGREE or SUCCESS is treated as failure.
-  if (executionResult !== "MAJORITY_AGREE" && executionResult !== "SUCCESS") {
+  // undefined means the SDK did not populate the field on this receipt — treat as success
+  // on a FINALIZED receipt (the status-level checks above already caught the bad cases).
+  // Only block additional known-bad explicit values here.
+  if (executionResult !== undefined && executionResult !== "MAJORITY_AGREE" && executionResult !== "SUCCESS") {
     return { status: "ERROR", message: `unexpected consensus result: ${executionResult}` };
   }
 
