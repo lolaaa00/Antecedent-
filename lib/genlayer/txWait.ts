@@ -30,15 +30,16 @@ export async function waitForFinality(client: AnyClient, hash: `0x${string}`): P
     return { status: "ERROR", message: `consensus reached no majority (${executionResult})` };
   }
 
-  // Any result other than MAJORITY_AGREE or SUCCESS is treated as failure.
-  if (executionResult !== "MAJORITY_AGREE" && executionResult !== "SUCCESS") {
-    return { status: "ERROR", message: `unexpected consensus result: ${executionResult}` };
-  }
-
+  // FINISHED_WITH_ERROR: extract detail from receipt data if available.
   if (executionResult === "FINISHED_WITH_ERROR") {
     const data = (receipt as { data?: Record<string, unknown> }).data;
     const message = data && typeof data === "object" ? JSON.stringify(data) : "execution reverted";
     return { status: "ERROR", message };
+  }
+
+  // Any result other than MAJORITY_AGREE or SUCCESS is treated as failure.
+  if (executionResult !== "MAJORITY_AGREE" && executionResult !== "SUCCESS") {
+    return { status: "ERROR", message: `unexpected consensus result: ${executionResult}` };
   }
 
   return { status: "SUCCESS" };
