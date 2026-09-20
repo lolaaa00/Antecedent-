@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useNotaryRead, useDeploymentStatus } from "@/lib/contract/useContracts";
 import { NotDeployedNotice } from "@/components/NotDeployedNotice";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -51,10 +52,22 @@ export default function EventsPage() {
           <li key={ev.event_id} className="py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-display text-lg">{ev.label}</p>
-                <p className="font-meta text-xs text-graphite">{ev.event_id}</p>
+                <Link href={`/events/${ev.event_id}`} className="group">
+                  <p className="font-display text-lg group-hover:underline">{ev.label}</p>
+                  <p className="font-meta text-xs text-graphite">{ev.event_id}</p>
+                </Link>
               </div>
-              <StatusBadge status={ev.status} />
+              <div className="flex items-center gap-3">
+                <StatusBadge status={ev.status} />
+                {(ev.status === "DRAFT" || ev.status === "SEALED") && (
+                  <Link
+                    href={`/events/${ev.event_id}`}
+                    className="font-meta text-[11px] uppercase tracking-wide text-cobalt hover:underline"
+                  >
+                    {ev.status === "DRAFT" ? "Seal →" : "Observe →"}
+                  </Link>
+                )}
+              </div>
             </div>
             <p className="mt-2 max-w-2xl text-sm text-carbon/70">{ev.criterion}</p>
             <ul className="mt-2 flex flex-wrap gap-3">

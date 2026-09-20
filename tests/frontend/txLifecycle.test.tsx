@@ -84,4 +84,36 @@ describe("useTxLifecycle", () => {
     });
     expect(finalState!.failure).toBe("STATE_MISMATCH");
   });
+
+  it("maps a NO_MAJORITY wait result to EXECUTION_ERROR failure", async () => {
+    // waitForFinality returns ERROR for NO_MAJORITY; the lifecycle must surface this
+    // as EXECUTION_ERROR at FINALIZED stage, not as success.
+    const { result } = renderHook(() => useTxLifecycle());
+    let finalState;
+    await act(async () => {
+      finalState = await result.current.run({
+        chainId: CANONICAL_CHAIN_ID,
+        write: async () => OK_HASH,
+        wait: async () => ({ status: "ERROR" as const, message: "consensus reached no majority (NO_MAJORITY)" }),
+        reread: async () => {},
+      });
+    });
+    expect(finalState!.failure).toBe("EXECUTION_ERROR");
+    expect(finalState!.stage).toBe("FINALIZED");
+    expect(finalState!.errorMessage).toMatch(/no majority/i);
+  });
+
+  it("does not call reread when consensus fails", async () => {
+    const { result } = renderHook(() => useTxLifecycle());
+    let rereadCalled = false;
+    await act(async () => {
+      await result.current.run({
+        chainId: CANONICAL_CHAIN_ID,
+        write: async () => OK_HASH,
+        wait: async () => ({ status: "ERROR" as const, message: "consensus reached no majority (NO_MAJORITY)" }),
+        reread: async () => { rereadCalled = true; },
+      });
+    });
+    expect(rereadCalled).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createEventSchema } from "@/lib/validation/schemas";
 import { useNotaryWrite } from "@/lib/contract/useContracts";
 import { useTxLifecycle } from "@/lib/contract/txLifecycle";
@@ -14,6 +15,7 @@ export function NewEventForm() {
   const wallet = useWallet();
   const notary = useNotaryWrite();
   const { state, run } = useTxLifecycle();
+  const router = useRouter();
 
   const [eventId, setEventId] = useState("");
   const [label, setLabel] = useState("");
@@ -44,7 +46,7 @@ export function NewEventForm() {
     }
     if (!notary) return;
 
-    await run({
+    const finalState = await run({
       chainId: wallet.chainId,
       write: () => notary.adapter.createEvent(parsed.data),
       wait: (hash) => waitForFinality(notary.client, hash),
@@ -52,6 +54,9 @@ export function NewEventForm() {
         await notary.adapter.getEvent(parsed.data.eventId);
       },
     });
+    if (finalState.stage === "STATE_REREAD") {
+      router.push(`/events/${parsed.data.eventId}`);
+    }
   }
 
   return (
