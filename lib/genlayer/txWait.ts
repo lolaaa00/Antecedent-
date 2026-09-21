@@ -4,11 +4,19 @@ type AnyClient = ReturnType<typeof getReadClient>;
 
 export type WaitResult = { status: "SUCCESS" | "ERROR"; message?: string };
 
+// Raw numeric consensus result values from the GenLayer TransactionResult enum.
+// The SDK maps the receipt's numeric `result` field to txExecutionResultName, but
+// the mapping only covers ExecutionResult (0–2); the consensus result (5 = NO_MAJORITY,
+// 6 = MAJORITY_AGREE) is carried in the raw `result` field and never populates
+// txExecutionResultName. We check both fields to make accurate decisions.
+const RESULT_NO_MAJORITY = 5;
+const RESULT_MAJORITY_AGREE = 6;
+
 /**
- * Waits for GenVM consensus to finalize a transaction, then inspects the
- * *execution* result — a FINALIZED status with FINISHED_WITH_ERROR is a
- * finalized failure, not a success. Never resolve "success" from a tx hash
- * alone.
+ * Waits for GenVM consensus to finalize a transaction, then inspects both
+ * the execution result (FINISHED_WITH_RETURN / FINISHED_WITH_ERROR) and the
+ * consensus vote result (MAJORITY_AGREE / NO_MAJORITY) from the raw receipt.
+ * Never resolves "success" from a tx hash alone.
  */
 export async function waitForFinality(client: AnyClient, hash: `0x${string}`): Promise<WaitResult> {
   const receipt = await client.waitForTransactionReceipt({
@@ -18,31 +26,43 @@ export async function waitForFinality(client: AnyClient, hash: `0x${string}`): P
     interval: 3000,
   });
 
-  const executionResult = (receipt as { txExecutionResultName?: string }).txExecutionResultName;
-  const statusName = (receipt as { statusName?: string }).statusName;
+  const r = receipt as {
+    statusName?: string;
+    txExecutionResultName?: string;
+    result?: number;
+    data?: Record<string, unknown>;
+  };
 
-  if (statusName === "CANCELED" || statusName === "VALIDATORS_TIMEOUT" || statusName === "LEADER_TIMEOUT") {
-    return { status: "ERROR", message: `consensus did not finalize: ${statusName}` };
+  // Terminal status-level failures — consensus never completed.
+  if (r.statusName === "CANCELED" || r.statusName === "VALIDATORS_TIMEOUT" || r.statusName === "LEADER_TIMEOUT") {
+    return { status: "ERROR", message: `consensus did not finalize: ${r.statusName}` };
   }
 
-  // FINALIZED + NO_MAJORITY means validators did not reach agreement — not a success.
-  if (executionResult === "NO_MAJORITY") {
-    return { status: "ERROR", message: `consensus reached no majority (${executionResult})` };
+  // Numeric consensus result: NO_MAJORITY means validators disagreed — not a success.
+  if (r.result === RESULT_NO_MAJORITY) {
+    return { status: "ERROR", message: "consensus reached no majority (NO_MAJORITY)" };
   }
 
-  // FINISHED_WITH_ERROR: extract detail from receipt data if available.
-  if (executionResult === "FINISHED_WITH_ERROR") {
-    const data = (receipt as { data?: Record<string, unknown> }).data;
-    const message = data && typeof data === "object" ? JSON.stringify(data) : "execution reverted";
+  // GenVM execution-level failure: contract raised an exception.
+  if (r.txExecutionResultName === "FINISHED_WITH_ERROR") {
+    const message =
+      r.data && typeof r.data === "object" ? JSON.stringify(r.data) : "execution reverted";
     return { status: "ERROR", message };
   }
 
-  // undefined means the SDK did not populate the field on this receipt — treat as success
-  // on a FINALIZED receipt (the status-level checks above already caught the bad cases).
-  // Only block additional known-bad explicit values here.
-  if (executionResult !== undefined && executionResult !== "MAJORITY_AGREE" && executionResult !== "SUCCESS") {
-    return { status: "ERROR", message: `unexpected consensus result: ${executionResult}` };
+  // Explicit execution success.
+  if (r.txExecutionResultName === "FINISHED_WITH_RETURN") {
+    return { status: "SUCCESS" };
   }
 
-  return { status: "SUCCESS" };
+  // Numeric consensus success: MAJORITY_AGREE with no execution error = success.
+  if (r.result === RESULT_MAJORITY_AGREE) {
+    return { status: "SUCCESS" };
+  }
+
+  // Any other combination is unexpected — surface for diagnosis.
+  return {
+    status: "ERROR",
+    message: `unexpected receipt state: statusName=${r.statusName} result=${r.result} executionResult=${r.txExecutionResultName}`,
+  };
 }
