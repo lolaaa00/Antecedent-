@@ -27,18 +27,19 @@ record.
 ## Live deployment — Studionet, chain 61999
 
 **All three contracts are deployed and finalized on Studionet as of
-2026-09-19.** Deployed via `npx tsx scripts/deploy.ts` (genlayer-js SDK),
-5/5 validator `AGREE` on all three contracts.
+2026-09-21.** Deployed via `npx tsx scripts/deploy.ts` (genlayer-js SDK).
+Fix: `Event.sources` and `Observation.source_support` changed from `DynArray`
+to `list` — local `DynArray()` construction had no storage path binding.
 
 | Contract | Address | Deploy tx | Explorer |
 |---|---|---|---|
-| `AntecedentNotary` | `0x88Cd00CfBca1443FD8a4aABC1Abfb9B43014110b` | `0xe95eef81ba1c039bdf3af981ac6dac6239d26dd0ae1068519a9cf2e781281ca5` | [tx](https://explorer-studio.genlayer.com/tx/0xe95eef81ba1c039bdf3af981ac6dac6239d26dd0ae1068519a9cf2e781281ca5) · [address](https://explorer-studio.genlayer.com/address/0x88Cd00CfBca1443FD8a4aABC1Abfb9B43014110b) |
-| `AntecedentGate` | `0x84F85e3Fb9bfb73CA2857ffEBE8e76Dcf168D844` | `0x96ac098e52120e3c4a6fb3442acf9731c65cff570403e3dcdd096573e7543eac` | [tx](https://explorer-studio.genlayer.com/tx/0x96ac098e52120e3c4a6fb3442acf9731c65cff570403e3dcdd096573e7543eac) · [address](https://explorer-studio.genlayer.com/address/0x84F85e3Fb9bfb73CA2857ffEBE8e76Dcf168D844) |
-| `MigrationExecutionConsumer` | `0xc967Ec62cB5FcE08cD28D8F1e472a5356CAb3D65` | `0xff46605671bc8fc63c249af45c80cb4c00570dc3d2695a97dcf61ec331bd235f` | [tx](https://explorer-studio.genlayer.com/tx/0xff46605671bc8fc63c249af45c80cb4c00570dc3d2695a97dcf61ec331bd235f) · [address](https://explorer-studio.genlayer.com/address/0xc967Ec62cB5FcE08cD28D8F1e472a5356CAb3D65) |
+| `AntecedentNotary` | `0xe26a87982B048807669d495b8a401dD549931BD1` | `0x1f35ccb6604b95ff535a9e66b494fa0e963f57a81527e3b8af36da533fe7ccd0` | [tx](https://explorer-studio.genlayer.com/tx/0x1f35ccb6604b95ff535a9e66b494fa0e963f57a81527e3b8af36da533fe7ccd0) · [address](https://explorer-studio.genlayer.com/address/0xe26a87982B048807669d495b8a401dD549931BD1) |
+| `AntecedentGate` | `0xA7643c5B79390e7AEda672203F98a48bC7e71793` | `0x18b86ba82ec0461ae882984aa3601d945d11f2b6d7612ad92fe111208cbe0772` | [tx](https://explorer-studio.genlayer.com/tx/0x18b86ba82ec0461ae882984aa3601d945d11f2b6d7612ad92fe111208cbe0772) · [address](https://explorer-studio.genlayer.com/address/0xA7643c5B79390e7AEda672203F98a48bC7e71793) |
+| `MigrationExecutionConsumer` | `0xeA00F62736FdD3d134C941a3c4f7823a4CC508Ea` | `0xafbfe50019676c8f83cc97b0dcea4ab6adc908eb9256b3599a8934f1291120c4` | [tx](https://explorer-studio.genlayer.com/tx/0xafbfe50019676c8f83cc97b0dcea4ab6adc908eb9256b3599a8934f1291120c4) · [address](https://explorer-studio.genlayer.com/address/0xeA00F62736FdD3d134C941a3c4f7823a4CC508Ea) |
 
 - Signer: `0x834942701bC9b5eb3F511378AC84EDdeA93f2C8b`
-- Git SHA at deployment: `982020f` (branch `main`)
-- Source SHA-256: `antecedent_notary.py` `86f60d9c0f63e3182ce41d5fc7aac6b68c6ff6c2260fd3aad9520ef77a911ad4` (38,616 bytes) · `antecedent_gate.py` `f409cc4cc36c42655390ebf244870e6cef26a75e0e36308fbc06e079c043644b` (5,720 bytes) · `antecedent_consumer.py` `16775081c136a4a780b5f5746aedae2642ff90f3aa6e6f74fe3404c25bc12a5a` (3,400 bytes)
+- Git SHA at deployment: `6bb383c` (branch `main`)
+- Source SHA-256: `antecedent_notary.py` `fe385a8dd2c25b6dd90aa6be1501a4a075316b601ee57103a5e771c0f7a36e25` (38,516 bytes) · `antecedent_gate.py` `f409cc4cc36c42655390ebf244870e6cef26a75e0e36308fbc06e079c043644b` (5,720 bytes) · `antecedent_consumer.py` `16775081c136a4a780b5f5746aedae2642ff90f3aa6e6f74fe3404c25bc12a5a` (3,400 bytes)
 - Full machine-readable record: [`docs/DEPLOYMENT_RECORD.json`](DEPLOYMENT_RECORD.json)
 - Frontend deployed to **https://antecedent.vercel.app** with all three
   addresses set as Vercel production environment variables
