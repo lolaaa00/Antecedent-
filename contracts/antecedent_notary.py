@@ -109,7 +109,7 @@ class Observation:
     effective_time: str
     time_basis: str
     reason: str
-    source_support: DynArray[SourceSupport]
+    source_support: list[SourceSupport]
     evidence_hash: str
 
 
@@ -119,7 +119,7 @@ class Event:
     event_id: str
     label: str
     criterion: str
-    sources: DynArray[str]
+    sources: list[str]
     time_extraction_policy: str
     definition_hash: str
     status: str
@@ -238,15 +238,11 @@ class AntecedentNotary(gl.Contract):
 
         definition_hash = self._definition_hash(label, criterion, sources, time_extraction_policy)
 
-        src = DynArray()
-        for s in sources:
-            src.append(s)
-
         self.events[event_id] = Event(
             event_id=event_id,
             label=label,
             criterion=criterion,
-            sources=src,
+            sources=list(sources),
             time_extraction_policy=time_extraction_policy,
             definition_hash=definition_hash,
             status=EVENT_DRAFT,
@@ -603,14 +599,14 @@ def _same_utc_date(t_a: int, t_b: int) -> bool:
 def _empty_observation() -> Observation:
     return Observation(
         occurrence="", effective_time="", time_basis="", reason="",
-        source_support=DynArray(), evidence_hash="",
+        source_support=[], evidence_hash="",
     )
 
 
 def _unavailable_observation(reason: str) -> Observation:
     return Observation(
         occurrence=OCC_UNAVAILABLE, effective_time="UNKNOWN", time_basis="UNKNOWN",
-        reason=reason[:MAX_REASON_LEN], source_support=DynArray(), evidence_hash="",
+        reason=reason[:MAX_REASON_LEN], source_support=[], evidence_hash="",
     )
 
 
@@ -624,7 +620,7 @@ def _observation_commitment(occurrence: str, effective_time: str, time_basis: st
 
 
 def _build_observation(candidate: dict) -> Observation:
-    support = DynArray()
+    support = []
     for s in candidate["source_support"]:
         support.append(SourceSupport(
             source_id=u32(s["source_id"]),
