@@ -51,10 +51,15 @@ export function NewEventForm() {
       write: () => notary.adapter.createEvent(parsed.data),
       wait: (hash) => waitForFinality(notary.client, hash),
       reread: async () => {
+        // Small delay before reread — GenLayer's read RPC can lag behind
+        // finalization by a few seconds on Studionet.
+        await new Promise((r) => setTimeout(r, 2000));
         await notary.adapter.getEvent(parsed.data.eventId);
       },
     });
-    if (finalState.stage === "STATE_REREAD") {
+    // Redirect on STATE_REREAD (clean) or EXECUTION_CONFIRMED (write confirmed,
+    // reread hit a propagation lag — the event exists, navigate anyway).
+    if (finalState.stage === "STATE_REREAD" || finalState.stage === "EXECUTION_CONFIRMED") {
       router.push(`/events/${parsed.data.eventId}`);
     }
   }
