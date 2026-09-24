@@ -4,19 +4,36 @@ type AnyClient = ReturnType<typeof getReadClient>;
 
 export type WaitResult = { status: "SUCCESS" | "ERROR"; message?: string };
 
-// Raw numeric consensus result values from the GenLayer TransactionResult enum.
-// The SDK maps the receipt's numeric `result` field to txExecutionResultName, but
-// the mapping only covers ExecutionResult (0–2); the consensus result (5 = NO_MAJORITY,
-// 6 = MAJORITY_AGREE) is carried in the raw `result` field and never populates
-// txExecutionResultName. We check both fields to make accurate decisions.
+// GenLayer's consensus result is exposed as numeric values by the current SDK,
+// while some RPC versions expose the enum name directly. Both are accepted;
+// a finalized receipt without MAJORITY_AGREE is never a successful write.
 const RESULT_NO_MAJORITY = 5;
 const RESULT_MAJORITY_AGREE = 6;
 
+function consensusResult(receipt: Record<string, unknown>): "MAJORITY_AGREE" | "NO_MAJORITY" | undefined {
+  const nested = receipt.consensus_data;
+  const data = nested && typeof nested === "object" ? nested as Record<string, unknown> : undefined;
+  const candidates = [
+    receipt.result,
+    receipt.consensusResultName,
+    receipt.consensus_result,
+    receipt.consensusResult,
+    data?.consensus_result_name,
+    data?.consensus_result,
+    data?.consensusResult,
+    data?.result,
+  ];
+  for (const value of candidates) {
+    if (value === RESULT_MAJORITY_AGREE || value === "MAJORITY_AGREE") return "MAJORITY_AGREE";
+    if (value === RESULT_NO_MAJORITY || value === "NO_MAJORITY") return "NO_MAJORITY";
+  }
+  return undefined;
+}
+
 /**
- * Waits for GenVM consensus to finalize a transaction, then inspects both
- * the execution result (FINISHED_WITH_RETURN / FINISHED_WITH_ERROR) and the
- * consensus vote result (MAJORITY_AGREE / NO_MAJORITY) from the raw receipt.
- * Never resolves "success" from a tx hash alone.
+ * Waits for GenVM consensus to finalize a transaction. Finalized is only a
+ * lifecycle status: the receipt must also contain MAJORITY_AGREE, and an
+ * explicit execution error still fails the write.
  */
 export async function waitForFinality(client: AnyClient, hash: `0x${string}`): Promise<WaitResult> {
   const receipt = await client.waitForTransactionReceipt({
@@ -29,40 +46,37 @@ export async function waitForFinality(client: AnyClient, hash: `0x${string}`): P
   const r = receipt as {
     statusName?: string;
     txExecutionResultName?: string;
-    result?: number;
+    result?: number | string;
+    consensusResultName?: string;
+    consensus_result?: string;
+    consensusResult?: string;
+    consensus_data?: Record<string, unknown>;
     data?: Record<string, unknown>;
   };
 
-  // Terminal status-level failures — consensus never completed.
-  if (r.statusName === "CANCELED" || r.statusName === "VALIDATORS_TIMEOUT" || r.statusName === "LEADER_TIMEOUT") {
-    return { status: "ERROR", message: `consensus did not finalize: ${r.statusName}` };
+  if (r.statusName !== "FINALIZED") {
+    return { status: "ERROR", message: `consensus did not finalize: ${r.statusName ?? "unknown"}` };
   }
 
-  // Numeric consensus result: NO_MAJORITY means validators disagreed — not a success.
-  if (r.result === RESULT_NO_MAJORITY) {
-    return { status: "ERROR", message: "consensus reached no majority (NO_MAJORITY)" };
+  const decidedResult = consensusResult(r as Record<string, unknown>);
+  if (decidedResult !== "MAJORITY_AGREE") {
+    return {
+      status: "ERROR",
+      message: `finalized without successful consensus (result: ${decidedResult ?? "unknown"})`,
+    };
   }
 
-  // GenVM execution-level failure: contract raised an exception.
   if (r.txExecutionResultName === "FINISHED_WITH_ERROR") {
-    const message =
-      r.data && typeof r.data === "object" ? JSON.stringify(r.data) : "execution reverted";
+    const message = r.data && typeof r.data === "object" ? JSON.stringify(r.data) : "execution reverted";
     return { status: "ERROR", message };
   }
 
-  // Explicit execution success.
-  if (r.txExecutionResultName === "FINISHED_WITH_RETURN") {
+  if (r.txExecutionResultName === "FINISHED_WITH_RETURN" || r.txExecutionResultName === undefined) {
     return { status: "SUCCESS" };
   }
 
-  // Numeric consensus success: MAJORITY_AGREE with no execution error = success.
-  if (r.result === RESULT_MAJORITY_AGREE) {
-    return { status: "SUCCESS" };
-  }
-
-  // Any other combination is unexpected — surface for diagnosis.
   return {
     status: "ERROR",
-    message: `unexpected receipt state: statusName=${r.statusName} result=${r.result} executionResult=${r.txExecutionResultName}`,
+    message: `unexpected execution state: ${r.txExecutionResultName}`,
   };
 }
